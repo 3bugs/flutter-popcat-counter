@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/cupertino.dart';
@@ -18,12 +19,12 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   static const title = 'POPCAT';
-  static const decreaseButtonLabel = 'DECREASE';
+  static const decreaseButtonLabel = 'COUNT DOWN';
   static const resetButtonLabel = 'RESET';
   static const resetDialogTitle = 'RESET COUNTER';
   static const resetDialogText = 'Are you sure?';
   static const resetDialogOk = 'OK';
-  static const resetDialogCancel = 'Cancel';
+  static const resetDialogCancel = 'CANCEL';
   static const titleFontSize = 70.0;
   static const lowerNumberFontSize = 100.0;
   static const upperNumberFontSize = 120.0;
@@ -33,7 +34,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   late Animation<double> _animation;
   late AnimationController _controller;
-  static AudioCache audioPlayer = AudioCache();
+  static AudioCache audioCache = AudioCache();
+
+  Uint8List? soundPopBytes, soundWoopBytes, soundCoinBytes;
 
   @override
   void initState() {
@@ -43,6 +46,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       setState(() {
         _counter = counter;
       });
+    });
+
+    _loadSoundFile('sounds/pop2.mp3').then((bytes) {
+      soundPopBytes = bytes;
+    });
+    _loadSoundFile('sounds/woop_out.mp3').then((bytes) {
+      soundWoopBytes = bytes;
+    });
+    _loadSoundFile('sounds/coin.wav').then((bytes) {
+      soundCoinBytes = bytes;
     });
 
     _controller = AnimationController(
@@ -117,7 +130,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 Expanded(
                   child: GestureDetector(
                     onTapDown: (TapDownDetails tapDownDetails) {
-                      audioPlayer.play('sounds/pop2.mp3');
+                      _playSound(soundPopBytes);
                       setState(() {
                         _counter!.updateValue(1);
                         _isPop = true;
@@ -137,7 +150,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       _buildButton(decreaseButtonLabel, () {
-                        audioPlayer.play('sounds/woop_out.mp3', volume: 0.2);
+                        _playSound(soundWoopBytes, volume: 0.2);
                         setState(() {
                           _counter!.updateValue(-1);
                           _controller.forward();
@@ -221,6 +234,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
+  Future<Uint8List> _loadSoundFile(String filePath) async {
+    return await (await audioCache.loadAsFile(filePath)).readAsBytes();
+  }
+
+  void _playSound(Uint8List? bytes, {double volume = 1.0}) {
+    if (bytes != null) audioCache.playBytes(bytes, volume: volume);
+  }
+
   Future<void> _showResetDialog() async {
     return showDialog<void>(
       context: context,
@@ -245,7 +266,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             TextButton(
               child: const Text(resetDialogOk),
               onPressed: () {
-                audioPlayer.play('sounds/coin.wav', volume: 0.2);
+                _playSound(soundCoinBytes, volume: 0.2);
                 setState(() {
                   _counter!.resetValue();
                   _controller.forward();

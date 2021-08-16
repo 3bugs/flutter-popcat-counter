@@ -16,16 +16,16 @@ class Counter {
     // disable count to negative numbers
     if (_value + diff >= 0) {
       _value += diff;
-      saveValueToPref();
+      _saveValueToPref();
     }
   }
 
   void resetValue() {
     _value = 0;
-    saveValueToPref();
+    _saveValueToPref();
   }
 
-  void saveValueToPref() {
+  void _saveValueToPref() {
     MyPrefs.setCounterValue(_value);
   }
 }
