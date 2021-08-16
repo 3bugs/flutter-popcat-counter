@@ -1,9 +1,11 @@
 import 'dart:math';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:popcat/model/counter_model.dart';
+import 'package:popcat/models/counter_model.dart';
+import 'package:popcat/utils/my_prefs.dart';
 
 //data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wgARCAOEAAEDAREAAhEBAxEB/8QAHAAAAgMBAQEBAAAAAAAAAAAAAgMAAQQFBggH/8QAGgEBAQEBAQEBAAAAAAAAAAAAAgADAQQFBv/aAAwDAQACEAMQAAAA/P8A8191tHqSSYtt+Z6A50c+9Dz69DzLdTGJ1sa6a52dB29B6DXPoak6KhoqmhixiJcrNHAvRKLhLykJeWK+eq+Uz39hyX0bzX01eg0ugbURDxRpwyonKlSpRVRKxxFmA5dENVdWfbTKe1n2YlWk3QO1tHbaYsZasOvcHleajZJElyOtduiz1Z423aaxWfEvlkGZlNozEOPXX1Tlshsk8GNJPeyrDuo+1pxvZxmhO5CTiR5jNejP/8QAKxAAAQEHAgQGAwAAAAAAAAAAABIBAhARExRhFVEDIWKBBBcgMFOSUnGR/9oACAEBAAE/AECISKRTwUMFvkps2LUTFLS2c3LDpLRhYOiRMOfpT6UnIW7uw1zrPOXhfkz7Gp+P6jyte+I0Dhlr0li6U8Qn7KmZOQvJUgkmVBQppImdyngQ0ovbNP5BbMlbJVbBAmKSZ2EnLZgl0UKbkSIEQTCmJFExeRbBTScEwmJKZ2EsJCv2XeC5e+DiGteJ3c+p/8QAHREAAgMBAAMBAAAAAAAAAAAAABEBEBIgAhMhMP/aAAgBAgEBPwCkIUDrQ+FAhGRSLpCp8uByO9QO1BqaZ9/B9fRCgZqKQhRWoHJkcGpM2hCPp7fEcnrk3ApGPhjnhCilyhU6dIVf/8QAGxEAAgMBAQEAAAAAAAAAAAAAABEBECASITD/2gAIAQMBAT8Ay6QpyhnUU50x7Z6K0LLEe/FU5tQIUCH8VIxHU0xXzhHUac4VrPmXTHX/2Q==
 
@@ -22,18 +24,26 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   static const resetDialogText = 'Are you sure?';
   static const resetDialogOk = 'OK';
   static const resetDialogCancel = 'Cancel';
-  static const lowerNumberFontSize = 120.0;
-  static const upperNumberFontSize = 140.0;
+  static const titleFontSize = 70.0;
+  static const lowerNumberFontSize = 100.0;
+  static const upperNumberFontSize = 120.0;
 
   var _isPop = false;
-  var _counter = Counter();
+  Counter? _counter;
 
   late Animation<double> _animation;
   late AnimationController _controller;
+  static AudioCache audioPlayer = AudioCache();
 
   @override
   void initState() {
     super.initState();
+
+    Counter.createFromPref().then((counter) {
+      setState(() {
+        _counter = counter;
+      });
+    });
 
     _controller = AnimationController(
       vsync: this,
@@ -56,8 +66,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    super.dispose();
     _controller.dispose();
+    super.dispose();
   }
 
   @override
@@ -81,60 +91,66 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             ),
           ),
           // title, counter, and cat image layer
-          SafeArea(
-            child: Column(
-              children: [
-                _buildText(title, 80.0, 2.0),
-                _buildCounter(),
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.bottomCenter,
-                    child: Image.asset(
-                      _isPop ? "assets/images/op.webp" : "assets/images/p.webp",
+          if (_counter != null)
+            SafeArea(
+              child: Column(
+                children: [
+                  _buildText(title, titleFontSize, 2.0),
+                  _buildCounter(),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: Image.asset(
+                        _isPop
+                            ? "assets/images/op.webp"
+                            : "assets/images/p.webp",
+                      ),
                     ),
+                  ),
+                ],
+              ),
+            ),
+          // gesture detector and buttons layer
+          if (_counter != null)
+            Column(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTapDown: (TapDownDetails tapDownDetails) {
+                      audioPlayer.play('sounds/pop2.mp3');
+                      setState(() {
+                        _counter!.updateValue(1);
+                        _isPop = true;
+                        _controller.forward();
+                      });
+                    },
+                    onTapUp: (TapUpDetails tapUpDetails) {
+                      setState(() {
+                        _isPop = false;
+                      });
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 8.0, right: 8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildButton(decreaseButtonLabel, () {
+                        audioPlayer.play('sounds/woop_out.mp3', volume: 0.2);
+                        setState(() {
+                          _counter!.updateValue(-1);
+                          _controller.forward();
+                        });
+                      }),
+                      _buildButton(resetButtonLabel, () {
+                        _showResetDialog();
+                      }),
+                    ],
                   ),
                 ),
               ],
-            ),
-          ),
-          // gesture detector and buttons layer
-          Column(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTapDown: (TapDownDetails tapDownDetails) {
-                    setState(() {
-                      _counter.updateValue(1);
-                      _isPop = true;
-                      _controller.forward();
-                    });
-                  },
-                  onTapUp: (TapUpDetails tapUpDetails) {
-                    setState(() {
-                      _isPop = false;
-                    });
-                  },
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(left: 8.0, right: 8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildButton(decreaseButtonLabel, () {
-                      setState(() {
-                        _counter.updateValue(-1);
-                        _controller.forward();
-                      });
-                    }),
-                    _buildButton(resetButtonLabel, () {
-                      _showResetDialog();
-                    }),
-                  ],
-                ),
-              ),
-            ],
-          )
+            )
         ],
       ),
     );
@@ -145,10 +161,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       turns: Tween(
         begin: 0.0,
         // random angle including sign (+/-)
-        end: (Random().nextInt(2) == 0 ? 1 : -1) * Random().nextDouble() * 0.08,
+        end: (Random().nextInt(2) == 0 ? 1 : -1) * Random().nextDouble() * 0.05,
       ).animate(_controller),
       child: _buildText(
-        _counter.value.toString(),
+        _counter!.value.toString(),
         // animate font size from lowerNumberFontSize to upperNumberFontSize
         _animation.value,
         // animate font stroke width from 2.0 to 4.0 based on font size
@@ -229,8 +245,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             TextButton(
               child: const Text(resetDialogOk),
               onPressed: () {
+                audioPlayer.play('sounds/coin.wav', volume: 0.2);
                 setState(() {
-                  _counter.resetValue();
+                  _counter!.resetValue();
                   _controller.forward();
                 });
                 Navigator.of(context).pop();
