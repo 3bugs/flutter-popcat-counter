@@ -1,14 +1,13 @@
+import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:device_info/device_info.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:popcat/models/counter_model.dart';
-import 'package:popcat/utils/my_prefs.dart';
-
-//data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wgARCAOEAAEDAREAAhEBAxEB/8QAHAAAAgMBAQEBAAAAAAAAAAAAAgMAAQQFBggH/8QAGgEBAQEBAQEBAAAAAAAAAAAAAgADAQQFBv/aAAwDAQACEAMQAAAA/P8A8191tHqSSYtt+Z6A50c+9Dz69DzLdTGJ1sa6a52dB29B6DXPoak6KhoqmhixiJcrNHAvRKLhLykJeWK+eq+Uz39hyX0bzX01eg0ugbURDxRpwyonKlSpRVRKxxFmA5dENVdWfbTKe1n2YlWk3QO1tHbaYsZasOvcHleajZJElyOtduiz1Z423aaxWfEvlkGZlNozEOPXX1Tlshsk8GNJPeyrDuo+1pxvZxmhO5CTiR5jNejP/8QAKxAAAQEHAgQGAwAAAAAAAAAAABIBAhARExRhFVEDIWKBBBcgMFOSUnGR/9oACAEBAAE/AECISKRTwUMFvkps2LUTFLS2c3LDpLRhYOiRMOfpT6UnIW7uw1zrPOXhfkz7Gp+P6jyte+I0Dhlr0li6U8Qn7KmZOQvJUgkmVBQppImdyngQ0ovbNP5BbMlbJVbBAmKSZ2EnLZgl0UKbkSIEQTCmJFExeRbBTScEwmJKZ2EsJCv2XeC5e+DiGteJ3c+p/8QAHREAAgMBAAMBAAAAAAAAAAAAABEBEBIgAhMhMP/aAAgBAgEBPwCkIUDrQ+FAhGRSLpCp8uByO9QO1BqaZ9/B9fRCgZqKQhRWoHJkcGpM2hCPp7fEcnrk3ApGPhjnhCilyhU6dIVf/8QAGxEAAgMBAQEAAAAAAAAAAAAAABEBECASITD/2gAIAQMBAT8Ay6QpyhnUU50x7Z6K0LLEe/FU5tQIUCH8VIxHU0xXzhHUac4VrPmXTHX/2Q==
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -16,6 +15,8 @@ class HomePage extends StatefulWidget {
   @override
   _HomePageState createState() => _HomePageState();
 }
+
+enum SoundType { pop, woop, coin }
 
 class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   static const title = 'POPCAT';
@@ -36,7 +37,23 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   late AnimationController _controller;
   static AudioCache audioCache = AudioCache();
 
-  Uint8List? soundPopBytes, soundWoopBytes, soundCoinBytes;
+  static const soundAssetPath = 'assetPath';
+  static const soundData = 'data';
+
+  Map<SoundType, Map<String, dynamic>> _soundMap = {
+    SoundType.pop: {
+      soundAssetPath: 'sounds/pop2.mp3',
+      soundData: null,
+    },
+    SoundType.woop: {
+      soundAssetPath: 'sounds/woop_out.mp3',
+      soundData: null,
+    },
+    SoundType.coin: {
+      soundAssetPath: 'sounds/coin.wav',
+      soundData: null,
+    },
+  };
 
   @override
   void initState() {
@@ -48,15 +65,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       });
     });
 
-    _loadSoundFile('sounds/pop2.mp3').then((bytes) {
-      soundPopBytes = bytes;
-    });
-    _loadSoundFile('sounds/woop_out.mp3').then((bytes) {
-      soundWoopBytes = bytes;
-    });
-    _loadSoundFile('sounds/coin.wav').then((bytes) {
-      soundCoinBytes = bytes;
-    });
+    _soundMap.forEach(
+      (k, v) => _loadSoundFile(v[soundAssetPath]!, (bytes) {
+        v[soundData] = bytes;
+      }),
+    );
 
     _controller = AnimationController(
       vsync: this,
@@ -94,9 +107,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             child: Transform.rotate(
               angle: -0.0523599, // 3 degrees
               child: Container(
-                decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: AssetImage("assets/images/bg.png"),
+                decoration: const BoxDecoration(
+                  image: const DecorationImage(
+                    image: const AssetImage("assets/images/bg.png"),
                     fit: BoxFit.fill,
                   ),
                 ),
@@ -129,15 +142,20 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               children: [
                 Expanded(
                   child: GestureDetector(
-                    onTapDown: (TapDownDetails tapDownDetails) {
-                      _playSound(soundPopBytes);
+                    onTapDown: (_) {
+                      _playSound(SoundType.pop);
                       setState(() {
                         _counter!.updateValue(1);
                         _isPop = true;
                         _controller.forward();
                       });
                     },
-                    onTapUp: (TapUpDetails tapUpDetails) {
+                    onTapUp: (_) {
+                      setState(() {
+                        _isPop = false;
+                      });
+                    },
+                    onTapCancel: () {
                       setState(() {
                         _isPop = false;
                       });
@@ -150,7 +168,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       _buildButton(decreaseButtonLabel, () {
-                        _playSound(soundWoopBytes, volume: 0.2);
+                        _playSound(SoundType.woop, volume: 0.2);
                         setState(() {
                           _counter!.updateValue(-1);
                           _controller.forward();
@@ -234,12 +252,42 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  Future<Uint8List> _loadSoundFile(String filePath) async {
-    return await (await audioCache.loadAsFile(filePath)).readAsBytes();
+  void _loadSoundFile(
+    String filePath,
+    Function(Uint8List?) callback,
+  ) async {
+    if (Platform.isAndroid) {
+      var androidInfo = await DeviceInfoPlugin().androidInfo;
+      var sdkInt = androidInfo.version.sdkInt;
+      if (sdkInt <= 22) {
+        callback(null);
+        return;
+      }
+    }
+
+    audioCache.loadAsFile(filePath).then((file) {
+      file.readAsBytes().then((bytes) {
+        print('Load sound data successfully!');
+        callback(bytes);
+      }).catchError((e) {
+        print('ERROR reading sound data from file: $filePath');
+        callback(null);
+      });
+    }).catchError((e) {
+      print('ERROR loading asset sound file: $filePath');
+      callback(null);
+    });
   }
 
-  void _playSound(Uint8List? bytes, {double volume = 1.0}) {
-    if (bytes != null) audioCache.playBytes(bytes, volume: volume);
+  void _playSound(SoundType soundType, {double volume = 1.0}) {
+    Map<String, dynamic> sound = _soundMap[soundType]!;
+    if (sound[soundData] != null) {
+      print('Playing sound from bytes data');
+      audioCache.playBytes(sound[soundData], volume: volume);
+    } else {
+      print('Playing sound from asset file');
+      audioCache.play(sound[soundAssetPath], volume: volume);
+    }
   }
 
   Future<void> _showResetDialog() async {
@@ -266,7 +314,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             TextButton(
               child: const Text(resetDialogOk),
               onPressed: () {
-                _playSound(soundCoinBytes, volume: 0.2);
+                _playSound(SoundType.coin, volume: 0.2);
                 setState(() {
                   _counter!.resetValue();
                   _controller.forward();
